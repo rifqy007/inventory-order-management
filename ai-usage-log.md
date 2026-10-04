@@ -28,3 +28,10 @@
 - Output yang digunakan: `docs/testing/submission-checklist.md`, serta tautannya dari README dan backlog; checklist memisahkan langkah release bersih, bukti demo, dan artefak desain/proses.
 - Output yang ditolak/tidak digunakan: tidak membuat screenshot, output test, class diagram pra-coding, atau riwayat commit/tag retrospektif karena itu akan menyatakan bukti yang belum terjadi sebagai fakta.
 - Verifikasi: dibandingkan dengan bagian Docker/testing, DESIGN-01/03, Git, dan checklist submission di Project Brief. `docker compose exec app composer quality` lulus pada 2026-10-05: 16 unit test/31 assertion, 7 integration test/45 assertion, PHPStan tanpa error, dan PHPCS sukses. Git pada audit membaca branch `main` tanpa commit; detail tindak lanjut dicatat di backlog.
+
+## OpenAI Codex — feedback login akun nonaktif
+
+- Tujuan: Memberi arahan kepada pemilik akun nonaktif tanpa membocorkan status akun kepada percobaan login dengan password salah.
+- Ringkasan prompt yang disanitasi: ubah feedback login akun nonaktif agar menyarankan menghubungi admin.
+- Output yang digunakan: `InactiveUserException`, penanganan pesan di `AuthController`, serta tes untuk akun nonaktif dengan password benar dan salah.
+- Verifikasi 2026-10-05: `docker compose exec app composer quality` lulus; unit 17 test/32 assertion, integration 7 test/45 assertion, PHPStan tanpa error pada 28 file, dan PHPCS lulus.

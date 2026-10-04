@@ -4,8 +4,9 @@
 
 Tanggal **2026-10-05**, dijalankan di container aplikasi sebagai bagian dari `composer quality`:
 
-- PHPStan level 5 (`composer analyse`): **lulus, tidak ada error**.
+- PHPStan level 5 (`composer analyse`): **lulus, tidak ada error** pada 28 file.
 - PHP_CodeSniffer (`composer format-check`): **lulus**.
+- Pemeriksaan ulang setelah perubahan feedback login akun nonaktif: unit **17 test/32 assertion**, integration **7 test/45 assertion**, PHPStan dan PHPCS lulus.
 - PHP syntax lint: enam file PHP yang diubah pada perbaikan error handling dan script low-stock: **lulus**.
 
 Pemeriksaan syntax untuk seluruh source sebelumnya mencatat 50 file lulus pada 2026-10-04. Jalankan kembali lint seluruh source setelah perubahan berikutnya.

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Exception\InactiveUserException;
 use App\Service\AuthService;
 use App\Support\Http;
 
@@ -22,7 +23,15 @@ final class AuthController
     public function login(): void
     {
         Http::verifyCsrf();
-        $u = $this->service->authenticate(trim((string)($_POST['email'] ?? '')), (string)($_POST['password'] ?? ''));
+        try {
+            $u = $this->service->authenticate(
+                trim((string) ($_POST['email'] ?? '')),
+                (string) ($_POST['password'] ?? '')
+            );
+        } catch (InactiveUserException) {
+            Http::flash('error', 'Akun Anda tidak aktif. Silakan hubungi admin.');
+            Http::redirect('/login');
+        }
         if (!$u) {
             Http::flash('error', 'Email atau password tidak valid.');
             Http::redirect('/login');

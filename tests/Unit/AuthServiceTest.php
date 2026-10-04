@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use App\Exception\InactiveUserException;
 use PHPUnit\Framework\TestCase;
 use App\Repository\FakeInventoryRepository;
 use App\Service\AuthService;
@@ -22,10 +23,20 @@ final class AuthServiceTest extends TestCase
         $r->users[] = ['id' => 1, 'name' => 'A', 'email' => 'a@b.test', 'password_hash' => password_hash('secret', PASSWORD_DEFAULT), 'role' => 'Admin', 'is_active' => 1];
         $this->assertNull((new AuthService($r))->authenticate('a@b.test', 'wrong'));
     }
-    public function test_inactive_user_is_rejected(): void
+    public function test_inactive_user_with_correct_password_is_identified(): void
     {
         $r = new FakeInventoryRepository();
         $r->users[] = ['id' => 1, 'name' => 'A', 'email' => 'a@b.test', 'password_hash' => password_hash('secret', PASSWORD_DEFAULT), 'role' => 'Admin', 'is_active' => 0];
-        $this->assertNull((new AuthService($r))->authenticate('a@b.test', 'secret'));
+
+        $this->expectException(InactiveUserException::class);
+        (new AuthService($r))->authenticate('a@b.test', 'secret');
+    }
+
+    public function test_inactive_user_with_wrong_password_gets_generic_failure(): void
+    {
+        $r = new FakeInventoryRepository();
+        $r->users[] = ['id' => 1, 'name' => 'A', 'email' => 'a@b.test', 'password_hash' => password_hash('secret', PASSWORD_DEFAULT), 'role' => 'Admin', 'is_active' => 0];
+
+        $this->assertNull((new AuthService($r))->authenticate('a@b.test', 'wrong'));
     }
 }

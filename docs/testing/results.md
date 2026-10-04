@@ -4,7 +4,7 @@
 
 Tanggal: **2026-10-05**. Dijalankan melalui `docker compose exec app composer quality` dengan PHP 8.2.34 dan PHPUnit 11.5.56.
 
-- Unit test: **16 test, 31 assertion, lulus**.
+- Unit test: **17 test, 32 assertion, lulus**. Test autentikasi kini memastikan akun nonaktif hanya mendapat kondisi spesifik setelah password benar; password salah tetap menghasilkan kegagalan umum.
 - MySQL integration test pada `db-test`: **7 test, 45 assertion, lulus**.
 - PHPStan level 5: **lulus, tanpa error**.
 - PHP_CodeSniffer: **lulus**.
