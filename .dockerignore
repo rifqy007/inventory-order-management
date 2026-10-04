@@ -1,0 +1,12 @@
+.git
+.env
+.env.*
+!.env.example
+vendor
+tests
+docs
+database
+*.log
+/public/uploads/*
+!/public/uploads/.gitkeep
+!/public/uploads/.htaccess

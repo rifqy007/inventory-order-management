@@ -1,0 +1,24 @@
+# Local environment secrets. Keep the template available to Git.
+/.env
+/.env.*
+!/.env.example
+
+# Composer dependencies are restored from composer.lock.
+/vendor/
+
+# PHPUnit-generated cache.
+/.phpunit.cache/
+/.phpunit.result.cache
+/junit.xml
+/coverage.xml
+/.scannerwork/
+
+# Uploaded user files are runtime data, not source assets.
+/public/uploads/*
+!/public/uploads/.gitkeep
+!/public/uploads/.htaccess
+
+# Local logs and operating-system metadata.
+*.log
+.DS_Store
+Thumbs.db

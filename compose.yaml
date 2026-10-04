@@ -1,0 +1,81 @@
+services:
+  sonar-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.sonar
+    volumes:
+      - ./:/var/www/html
+    environment:
+      TEST_DB_HOST: db-test
+      TEST_DB_PORT: 3306
+      TEST_DB_NAME: ${DB_NAME:-inventory}
+      TEST_DB_USER: ${DB_USER:-inventory}
+      TEST_DB_PASS: ${DB_PASS:-inventory_secret}
+    depends_on:
+      db-test:
+        condition: service_healthy
+    command: sh -c 'composer install --no-interaction --prefer-dist --no-progress && XDEBUG_MODE=coverage vendor/bin/phpunit -c phpunit.coverage.xml --coverage-clover=coverage.xml'
+  app:
+    build: .
+    ports:
+      - '${APP_PORT:-8080}:80'
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      DB_HOST: ${DB_HOST:-db}
+      DB_PORT: ${DB_PORT:-3306}
+      DB_NAME: ${DB_NAME:-inventory}
+      DB_USER: ${DB_USER:-inventory}
+      DB_PASS: ${DB_PASS:-inventory_secret}
+      TEST_DB_HOST: db-test
+      TEST_DB_PORT: 3306
+      TEST_DB_NAME: ${DB_NAME:-inventory}
+      TEST_DB_USER: ${DB_USER:-inventory}
+      TEST_DB_PASS: ${DB_PASS:-inventory_secret}
+    volumes:
+      - ./:/var/www/html
+    depends_on:
+      db:
+        condition: service_healthy
+      db-test:
+        condition: service_healthy
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: ${DB_NAME:-inventory}
+      MYSQL_USER: ${DB_USER:-inventory}
+      MYSQL_PASSWORD: ${DB_PASS:-inventory_secret}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_secret}
+    ports:
+      - '${DB_HOST_PORT:-3307}:3306'
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./database/schema-and-seed.sql:/docker-entrypoint-initdb.d/01-schema-and-seed.sql:ro
+      - ./database/migrations/002-complete-workflow.sql:/docker-entrypoint-initdb.d/02-complete-workflow.sql:ro
+      - ./database/migrations/003-product-image.sql:/docker-entrypoint-initdb.d/03-product-image.sql:ro
+      - ./database/migrations/004-demo-order-data.sql:/docker-entrypoint-initdb.d/04-demo-order-data.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'mysqladmin ping -h localhost -p"$${MYSQL_ROOT_PASSWORD}" --silent']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  db-test:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: ${DB_NAME:-inventory}
+      MYSQL_USER: ${DB_USER:-inventory}
+      MYSQL_PASSWORD: ${DB_PASS:-inventory_secret}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_secret}
+    volumes:
+      - db_test_data:/var/lib/mysql
+      - ./database/schema-and-seed.sql:/docker-entrypoint-initdb.d/01-schema-and-seed.sql:ro
+      - ./database/migrations/002-complete-workflow.sql:/docker-entrypoint-initdb.d/02-complete-workflow.sql:ro
+      - ./database/migrations/003-product-image.sql:/docker-entrypoint-initdb.d/03-product-image.sql:ro
+      - ./database/migrations/004-demo-order-data.sql:/docker-entrypoint-initdb.d/04-demo-order-data.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'mysqladmin ping -h localhost -p"$${MYSQL_ROOT_PASSWORD}" --silent']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+volumes:
+  db_data:
+  db_test_data:

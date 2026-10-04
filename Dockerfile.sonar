@@ -1,0 +1,20 @@
+FROM php:8.2-cli-bookworm
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        git \
+        libonig-dev \
+        libxml2-dev \
+        unzip \
+        $PHPIZE_DEPS \
+    && docker-php-ext-install pdo_mysql mbstring \
+    && pecl install xdebug \
+    && docker-php-ext-enable xdebug \
+    && apt-get purge -y --auto-remove $PHPIZE_DEPS \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+WORKDIR /var/www/html
+
+CMD ["sh", "-c", "XDEBUG_MODE=coverage composer test -- --coverage-clover=coverage.xml"]
