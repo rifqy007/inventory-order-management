@@ -10,6 +10,8 @@ use App\Support\Http;
 
 final class AuthController
 {
+    private const LOGIN_PATH = '/login';
+
     public function __construct(private AuthService $service)
     {
     }
@@ -30,11 +32,11 @@ final class AuthController
             );
         } catch (InactiveUserException) {
             Http::flash('error', 'Akun Anda tidak aktif. Silakan hubungi admin.');
-            Http::redirect('/login');
+            Http::redirect(self::LOGIN_PATH);
         }
         if (!$u) {
             Http::flash('error', 'Email atau password tidak valid.');
-            Http::redirect('/login');
+            Http::redirect(self::LOGIN_PATH);
         }
         session_regenerate_id(true);
         $_SESSION['user'] = $u;
@@ -45,6 +47,6 @@ final class AuthController
         Http::verifyCsrf();
         $_SESSION = [];
         session_destroy();
-        Http::redirect('/login');
+        Http::redirect(self::LOGIN_PATH);
     }
 }

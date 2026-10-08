@@ -24,10 +24,10 @@ final readonly class ListOptions
         $perPage = in_array($requestedSize, self::ALLOWED_PAGE_SIZES, true)
             ? $requestedSize
             : 10;
-        $requestedSort = strtolower((string) ($query['direction'] ?? 'desc'));
+        $requestedSort = strtolower((string) ($query['direction'] ?? 'asc'));
         $direction = in_array($requestedSort, self::ALLOWED_SORTS, true)
             ? $requestedSort
-            : 'desc';
+            : 'asc';
         $requestedColumn = (string) ($query['sort'] ?? $defaultSort);
         $sort = in_array($requestedColumn, $allowedSorts, true) ? $requestedColumn : $defaultSort;
         return new self($page, $perPage, $direction, $sort);

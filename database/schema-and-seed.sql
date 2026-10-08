@@ -160,10 +160,14 @@ CREATE TABLE suppliers (
     id INT AUTO_INCREMENT PRIMARY KEY,
 
     name VARCHAR(150) NOT NULL,
+    category_id INT NOT NULL,
     contact VARCHAR(100),
     address TEXT,
 
-    is_active BOOLEAN NOT NULL DEFAULT TRUE
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    CONSTRAINT fk_suppliers_category
+        FOREIGN KEY (category_id)
+        REFERENCES categories (id)
 );
 
 
@@ -510,7 +514,8 @@ INSERT INTO categories (
 VALUES
     ('Elektronik', 'Perangkat elektronik'),
     ('ATK', 'Alat tulis kantor'),
-    ('Aksesori', 'Aksesori umum');
+    ('Aksesori', 'Aksesori umum'),
+    ('Konsumsi', 'Makanan, minuman, dan kebutuhan konsumsi');
 
 
 /* ============================================================
@@ -519,15 +524,13 @@ VALUES
 
 INSERT INTO suppliers (
     name,
+    category_id,
     contact,
     address
 )
-VALUES
-    (
-        'Supplier Demo',
-        '021-555',
-        'Jakarta'
-    );
+SELECT 'Supplier Demo', id, '021-555', 'Jakarta'
+FROM categories
+WHERE name = 'ATK';
 
 
 /* ============================================================
@@ -559,10 +562,10 @@ VALUES
    - dan seterusnya sampai SKU-030.
 
    Rumus kategori:
-   ((n - 1) % 3) + 1
+   ((n - 1) % 4) + 1
 
    Rumus tersebut membagi produk secara bergantian ke dalam
-   kategori dengan ID 1, 2, dan 3.
+   kategori dengan ID 1 sampai 4.
    ============================================================ */
 
 INSERT INTO products (
@@ -579,7 +582,7 @@ SELECT
 
     CONCAT('Produk Demo ', n) AS name,
 
-    ((n - 1) % 3) + 1 AS category_id,
+    ((n - 1) % 4) + 1 AS category_id,
 
     'pcs' AS unit,
 

@@ -42,6 +42,14 @@ final class MysqlInventoryRepository implements InventoryRepositoryInterface
             $statement->execute($parameters);
             return (float) $statement->fetchColumn();
         };
+        $lowStockProducts = 'SELECT COUNT(*) FROM (
+            SELECT p.id
+            FROM products p
+            LEFT JOIN product_stocks ps ON ps.product_id = p.id
+            WHERE p.is_active = 1
+            GROUP BY p.id, p.reorder_point
+            HAVING COALESCE(SUM(ps.quantity), 0) <= p.reorder_point
+        ) AS low_stock_products';
         if ($role === 'Sales') {
             return [
                 'Order saya' => $scalar('SELECT COUNT(*) FROM sales_orders WHERE created_by=:id', ['id' => $userId]),
@@ -56,14 +64,23 @@ final class MysqlInventoryRepository implements InventoryRepositoryInterface
             return [
                 'Goods receipt' => $scalar("SELECT COUNT(*) FROM purchase_orders WHERE status IN ('Ordered','PartiallyReceived')"),
                 'Goods issue' => $scalar("SELECT COUNT(*) FROM sales_orders WHERE status='Approved'"),
-                'Low stock' => $scalar('SELECT COUNT(*) FROM product_stocks ps INNER JOIN products p ON p.id=ps.product_id WHERE ps.quantity<=p.reorder_point'),
+                'Low stock' => $scalar($lowStockProducts),
                 'Movement hari ini' => $scalar('SELECT COUNT(*) FROM stock_ledger WHERE created_at>=CURRENT_DATE'),
             ];
         }
         return [
-            'Nilai inventori' => $scalar('SELECT COALESCE(SUM(ps.quantity*p.purchase_price),0) FROM product_stocks ps INNER JOIN products p ON p.id=ps.product_id'),
+            'Nilai inventori' => $scalar(
+                'SELECT COALESCE(SUM(product_inventory.inventory_value), 0)
+                 FROM (
+                    SELECT p.id,
+                           p.purchase_price * COALESCE(SUM(ps.quantity), 0) AS inventory_value
+                    FROM products p
+                    LEFT JOIN product_stocks ps ON ps.product_id = p.id
+                    GROUP BY p.id, p.purchase_price
+                 ) AS product_inventory'
+            ),
             'Produk aktif' => $scalar('SELECT COUNT(*) FROM products WHERE is_active=1'),
-            'Low stock' => $scalar('SELECT COUNT(*) FROM product_stocks ps INNER JOIN products p ON p.id=ps.product_id WHERE ps.quantity<=p.reorder_point'),
+            'Low stock' => $scalar($lowStockProducts),
             'SO menunggu approval' => $scalar("SELECT COUNT(*) FROM sales_orders WHERE status='PendingApproval'"),
             'PO menunggu penerimaan' => $scalar("SELECT COUNT(*) FROM purchase_orders WHERE status IN ('Ordered','PartiallyReceived')"),
         ];
@@ -86,6 +103,9 @@ final class MysqlInventoryRepository implements InventoryRepositoryInterface
         $stockFilter = in_array(($filter['stock'] ?? ''), ['low', 'normal'], true)
             ? $filter['stock']
             : '';
+        $activeFilter = in_array((string) ($filter['active'] ?? ''), ['0', '1'], true)
+            ? (string) $filter['active']
+            : '';
         $statement = $this->pdo->prepare(
             'SELECT p.id, p.sku, p.name, p.unit, p.selling_price,
                     p.reorder_point, p.image_path, p.is_active, c.name AS category,
@@ -97,6 +117,7 @@ final class MysqlInventoryRepository implements InventoryRepositoryInterface
              LEFT JOIN warehouses w ON w.id = ps.warehouse_id
              WHERE (:term_empty = 1 OR p.name LIKE :name OR p.sku LIKE :sku)
                AND (:category_id = 0 OR p.category_id = :category_value)
+               AND (:active_filter = \'\' OR p.is_active = :active_value)
              GROUP BY p.id, p.sku, p.name, p.unit, p.selling_price,
                       p.reorder_point, p.image_path, p.is_active, c.name
              HAVING (:stock_filter = \'\'
@@ -111,6 +132,8 @@ final class MysqlInventoryRepository implements InventoryRepositoryInterface
             'sku' => $term,
             'category_id' => (int) ($filter['category_id'] ?? 0),
             'category_value' => (int) ($filter['category_id'] ?? 0),
+            'active_filter' => $activeFilter,
+            'active_value' => $activeFilter === '' ? 0 : (int) $activeFilter,
             'stock_filter' => $stockFilter,
             'stock_low' => $stockFilter === 'low' ? 1 : 0,
             'stock_normal' => $stockFilter === 'normal' ? 1 : 0,
@@ -130,15 +153,23 @@ final class MysqlInventoryRepository implements InventoryRepositoryInterface
             throw new InvalidArgumentException('Tabel opsi tidak diizinkan.');
         }
         return $this->pdo->query(
-            'SELECT ' . $columns[$table] . ' FROM ' . $table . ' WHERE is_active = 1 ORDER BY name'
+            $table === 'suppliers'
+                ? 'SELECT s.id, s.name, s.category_id, c.name AS category_name
+                   FROM suppliers AS s
+                   JOIN categories AS c ON c.id = s.category_id
+                   WHERE s.is_active = 1 AND c.is_active = 1
+                   ORDER BY s.name ASC, s.id ASC'
+                : 'SELECT ' . $columns[$table] . ' FROM ' . $table . ' WHERE is_active = 1 ORDER BY name'
         )->fetchAll();
     }
 
     public function activeProducts(): array
     {
         return $this->pdo->query(
-            'SELECT id, sku, name, purchase_price, selling_price
-             FROM products WHERE is_active = 1 ORDER BY name'
+            'SELECT id, sku, name, category_id, purchase_price, selling_price
+             FROM products
+             WHERE is_active = 1
+             ORDER BY sku ASC, name ASC, id ASC'
         )->fetchAll();
     }
 
@@ -214,12 +245,16 @@ final class MysqlInventoryRepository implements InventoryRepositoryInterface
 
     public function productCount(array $filter = []): int
     {
+        $activeFilter = in_array((string) ($filter['active'] ?? ''), ['0', '1'], true)
+            ? (string) $filter['active']
+            : '';
         $statement = $this->pdo->prepare(
             'SELECT COUNT(*) FROM products p
              INNER JOIN categories c ON c.id = p.category_id
              LEFT JOIN product_stocks ps ON ps.product_id = p.id
              WHERE (:term_empty = 1 OR p.name LIKE :name OR p.sku LIKE :sku)
                AND (:category_id = 0 OR p.category_id = :category_value)
+               AND (:active_filter = \'\' OR p.is_active = :active_value)
              GROUP BY p.id, p.reorder_point
              HAVING (:stock_filter = \'\'
                  OR (:stock_low = 1 AND COALESCE(SUM(ps.quantity), 0) <= p.reorder_point)
@@ -235,6 +270,8 @@ final class MysqlInventoryRepository implements InventoryRepositoryInterface
             'sku' => '%' . $term . '%',
             'category_id' => (int) ($filter['category_id'] ?? 0),
             'category_value' => (int) ($filter['category_id'] ?? 0),
+            'active_filter' => $activeFilter,
+            'active_value' => $activeFilter === '' ? 0 : (int) $activeFilter,
             'stock_filter' => $stockFilter,
             'stock_low' => $stockFilter === 'low' ? 1 : 0,
             'stock_normal' => $stockFilter === 'normal' ? 1 : 0,

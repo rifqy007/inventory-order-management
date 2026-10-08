@@ -7,6 +7,14 @@ tests
 docs
 database
 *.log
+/.phpunit.cache/
+/.phpunit.result.cache
+/junit.xml
+/coverage.xml
+/.scannerwork/
+/.sonar/
+/sonarqube-*.csv
+/sonarqube-*.json
 /public/uploads/*
 !/public/uploads/.gitkeep
 !/public/uploads/.htaccess

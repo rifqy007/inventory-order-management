@@ -70,6 +70,10 @@ final class OrderWorkflowIntegrationTest extends TestCase
         $products = $repository->products($filters);
         self::assertSame('SKU-030', $products[0]['sku']);
         self::assertNotEmpty($products[0]['warehouse_stocks']);
+        $orderProducts = $repository->activeProducts();
+        self::assertSame('SKU-001', $orderProducts[0]['sku']);
+        self::assertSame('SKU-002', $orderProducts[1]['sku']);
+        self::assertSame('SKU-010', $orderProducts[9]['sku']);
         $detail = $repository->productDetail((int) $products[0]['id']);
         self::assertCount(2, $detail['warehouses']);
     }
@@ -94,6 +98,16 @@ final class OrderWorkflowIntegrationTest extends TestCase
 
         try {
             self::assertSame($name, $inventory->findMasterById('categories', $id)['name']);
+            self::assertSame(1, $inventory->masterCount('categories', $name));
+            $masterRows = $inventory->masterRows('categories', [
+                'q' => $name,
+                'sort' => 'name',
+                'direction' => 'desc',
+                'per_page' => 10,
+                'page' => 1,
+            ]);
+            self::assertCount(1, $masterRows);
+            self::assertSame($name, $masterRows[0]['name']);
             $inventory->updateMaster('categories', $id, ['name' => $name, 'description' => 'Updated']);
             $inventory->setMasterActive('categories', $id, false);
             self::assertSame(0, (int) $inventory->findMasterById('categories', $id)['is_active']);

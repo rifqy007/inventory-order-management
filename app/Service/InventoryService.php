@@ -20,10 +20,10 @@ final class InventoryService
     public function move(int $productId, int $warehouseId, string $type, int $qty, string $refType, int $refId, int $userId): void
     {
         if ($qty <= 0) {
-            throw new DomainException('Quantity harus lebih dari nol.');
+            throw new DomainException('Jumlah harus lebih dari nol.');
         }
         if (!in_array($type, ['Receipt', 'Issue', 'Adjustment'], true)) {
-            throw new DomainException('Tipe pergerakan tidak valid.');
+            throw new DomainException('Jenis pergerakan stok tidak valid.');
         }
         $this->repo->beginTransaction();
         try {

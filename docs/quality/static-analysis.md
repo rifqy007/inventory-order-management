@@ -1,5 +1,9 @@
 # Hasil Static Analysis
 
+## SonarQube
+
+Scan **8 Oktober 2026** berhasil mengunggah analisis ke SonarQube. PHPUnit lulus dengan **24 test dan 83 assertion**. Quality Gate masih **gagal** karena coverage New Code **21,8%** dengan ambang **80%**. Tambahkan test untuk kode baru yang belum tercakup, lalu jalankan scan kembali. Log juga mencatat peringatan SCM karena SonarQube tidak memperoleh blame information untuk sejumlah file; peringatan ini tidak mengubah hasil coverage.
+
 ## Verifikasi terbaru
 
 Tanggal **2026-10-05**, dijalankan di container aplikasi sebagai bagian dari `composer quality`:

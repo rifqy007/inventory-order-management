@@ -14,9 +14,11 @@ use Throwable;
 final class MasterController
 {
     private const NOT_FOUND_VIEW = 'errors/404';
-    private const PRODUCT_CREATE_PATH = '/products/new';
-    private const PRODUCT_PATH = '/products/';
+    private const PRODUCTS_BASE_PATH = '/products';
+    private const PRODUCT_CREATE_PATH = self::PRODUCTS_BASE_PATH . '/new';
+    private const PRODUCT_PATH = self::PRODUCTS_BASE_PATH . '/';
     private const EDIT_PATH = '/edit';
+    private const RETURN_TO_QUERY = '?return_to=';
 
     public function __construct(private MysqlInventoryRepository $repository)
     {
@@ -33,6 +35,7 @@ final class MasterController
             'sort' => (string) ($_GET['sort'] ?? 'name'),
             'category_id' => (int) ($_GET['category_id'] ?? 0),
             'stock' => (string) ($_GET['stock'] ?? ''),
+            'active' => (string) ($_GET['active'] ?? ''),
         ];
         $options = ListOptions::fromRequest($filters, ['sku', 'name', 'category', 'unit', 'selling_price', 'total_stock', 'warehouse_stocks', 'reorder_point'], 'name');
         $filters['page'] = $options->page;
@@ -61,6 +64,7 @@ final class MasterController
         Http::view('products/form', [
             'product' => $product,
             'categories' => $this->repository->activeOptions('categories'),
+            'returnTo' => Http::returnTo(self::PRODUCTS_BASE_PATH),
         ]);
     }
 
@@ -73,20 +77,24 @@ final class MasterController
             Http::view(self::NOT_FOUND_VIEW);
             return;
         }
-        Http::view('products/detail', ['product' => $product]);
+        Http::view('products/detail', [
+            'product' => $product,
+            'returnTo' => Http::returnTo(self::PRODUCTS_BASE_PATH),
+        ]);
     }
 
     public function saveProduct(?int $id = null): void
     {
         Http::requireRole(['Admin']);
         Http::verifyCsrf();
+        $returnTo = Http::returnTo(self::PRODUCTS_BASE_PATH);
         $data = [
             'sku' => strtoupper(trim((string) ($_POST['sku'] ?? ''))),
             'name' => trim((string) ($_POST['name'] ?? '')),
             'category_id' => (int) ($_POST['category_id'] ?? 0),
             'unit' => trim((string) ($_POST['unit'] ?? '')),
-            'purchase_price' => filter_var($_POST['purchase_price'] ?? null, FILTER_VALIDATE_FLOAT),
-            'selling_price' => filter_var($_POST['selling_price'] ?? null, FILTER_VALIDATE_FLOAT),
+            'purchase_price' => $this->parseRupiahInput($_POST['purchase_price'] ?? null),
+            'selling_price' => $this->parseRupiahInput($_POST['selling_price'] ?? null),
             'reorder_point' => filter_var($_POST['reorder_point'] ?? null, FILTER_VALIDATE_INT),
         ];
         if (
@@ -97,7 +105,7 @@ final class MasterController
             || $data['reorder_point'] < 0
         ) {
             Http::flash('error', 'Lengkapi data produk. Harga dan reorder point harus bernilai nol atau lebih.');
-            Http::redirect($id === null ? self::PRODUCT_CREATE_PATH : self::PRODUCT_PATH . $id . self::EDIT_PATH);
+            Http::redirect(($id === null ? self::PRODUCT_CREATE_PATH : self::PRODUCT_PATH . $id . self::EDIT_PATH) . self::RETURN_TO_QUERY . rawurlencode($returnTo));
         }
         try {
             $data['image_path'] = $this->storeProductImage();
@@ -107,13 +115,13 @@ final class MasterController
                 $this->repository->updateProduct($id, $data);
             }
             Http::flash('success', 'Data produk berhasil disimpan.');
-            Http::redirect('/products');
+            Http::redirect($returnTo);
         } catch (\DomainException $e) {
             Http::flash('error', $e->getMessage());
-            Http::redirect($id === null ? self::PRODUCT_CREATE_PATH : self::PRODUCT_PATH . $id . self::EDIT_PATH);
+            Http::redirect(($id === null ? self::PRODUCT_CREATE_PATH : self::PRODUCT_PATH . $id . self::EDIT_PATH) . self::RETURN_TO_QUERY . rawurlencode($returnTo));
         } catch (Throwable) {
             Http::flash('error', 'SKU mungkin sudah digunakan atau data produk tidak valid.');
-            Http::redirect($id === null ? self::PRODUCT_CREATE_PATH : self::PRODUCT_PATH . $id . self::EDIT_PATH);
+            Http::redirect(($id === null ? self::PRODUCT_CREATE_PATH : self::PRODUCT_PATH . $id . self::EDIT_PATH) . self::RETURN_TO_QUERY . rawurlencode($returnTo));
         }
     }
 
@@ -121,18 +129,50 @@ final class MasterController
     {
         Http::requireRole(['Admin']);
         Http::verifyCsrf();
+        $returnTo = Http::returnTo(self::PRODUCTS_BASE_PATH);
         $active = (string) ($_POST['active'] ?? '0') === '1';
         $this->repository->setProductActive($id, $active);
         Http::flash('success', $active ? 'Produk diaktifkan.' : 'Produk dinonaktifkan.');
-        Http::redirect('/products');
+        Http::redirect($returnTo);
     }
 
     public function list(string $table): void
     {
         Http::requireRole(['Admin']);
+        if ($table === 'users') {
+            Http::redirect('/admin/users');
+        }
+
+        $allowedSorts = match ($table) {
+            'categories' => ['name', 'description', 'is_active'],
+            'warehouses' => ['name', 'location', 'is_active'],
+            'suppliers' => ['name', 'category', 'contact', 'address', 'is_active'],
+            'customers' => ['name', 'contact', 'address', 'is_active'],
+            default => throw new \InvalidArgumentException('Master data tidak diizinkan.'),
+        };
+        $filters = [
+            'q' => trim((string) ($_GET['q'] ?? '')),
+            'page' => max(1, (int) ($_GET['page'] ?? 1)),
+            'per_page' => (int) ($_GET['per_page'] ?? 10),
+            'direction' => (string) ($_GET['direction'] ?? 'asc'),
+            'sort' => (string) ($_GET['sort'] ?? 'name'),
+        ];
+        $options = ListOptions::fromRequest($filters, $allowedSorts, 'name');
+        $filters['page'] = $options->page;
+        $filters['per_page'] = $options->perPage;
+        $filters['direction'] = $options->direction;
+        $filters['sort'] = $options->sort;
+        $total = $this->repository->masterCount($table, $filters['q']);
+        $pages = max(1, (int) ceil($total / $filters['per_page']));
+        $filters['page'] = min($filters['page'], $pages);
+
         Http::view('master/index', [
             'table' => $table,
-            'rows' => $this->repository->all($table),
+            'rows' => $this->repository->masterRows($table, $filters),
+            'filters' => $filters,
+            'total' => $total,
+            'pages' => $pages,
+            'categories' => $table === 'suppliers' ? $this->repository->activeOptions('categories') : [],
         ]);
     }
 
@@ -140,11 +180,12 @@ final class MasterController
     {
         Http::requireRole(['Admin']);
         Http::verifyCsrf();
+        $returnTo = Http::returnTo('/' . $table);
 
         $data = $this->masterInput($table);
-        if ($data['name'] === '') {
-            Http::flash('error', 'Nama wajib diisi.');
-            Http::redirect('/' . $table);
+        if ($data['name'] === '' || !$this->validSupplierCategory($table, $data)) {
+            Http::flash('error', $data['name'] === '' ? 'Nama wajib diisi.' : 'Pilih kategori produk yang aktif untuk supplier.');
+            Http::redirect($returnTo);
         }
 
         try {
@@ -153,7 +194,7 @@ final class MasterController
         } catch (Throwable) {
             Http::flash('error', 'Data tidak dapat disimpan. Pastikan nama belum digunakan.');
         }
-        Http::redirect('/' . $table);
+        Http::redirect($returnTo);
     }
 
     public function edit(string $table, int $id): void
@@ -170,6 +211,8 @@ final class MasterController
         Http::view('master/edit', [
             'table' => $table,
             'row' => $row,
+            'returnTo' => Http::returnTo('/' . $table),
+            'categories' => $table === 'suppliers' ? $this->repository->activeOptions('categories') : [],
         ]);
     }
 
@@ -177,11 +220,12 @@ final class MasterController
     {
         Http::requireRole(['Admin']);
         Http::verifyCsrf();
+        $returnTo = Http::returnTo('/' . $table);
 
         $data = $this->masterInput($table);
-        if ($data['name'] === '') {
-            Http::flash('error', 'Nama wajib diisi.');
-            Http::redirect('/' . $table . '/' . $id . '/edit');
+        if ($data['name'] === '' || !$this->validSupplierCategory($table, $data)) {
+            Http::flash('error', $data['name'] === '' ? 'Nama wajib diisi.' : 'Pilih kategori produk yang aktif untuk supplier.');
+            Http::redirect('/' . $table . '/' . $id . '/edit?return_to=' . rawurlencode($returnTo));
         }
 
         try {
@@ -190,13 +234,14 @@ final class MasterController
         } catch (Throwable) {
             Http::flash('error', 'Data tidak dapat diperbarui. Pastikan nama belum digunakan.');
         }
-        Http::redirect('/' . $table);
+        Http::redirect($returnTo);
     }
 
     public function changeStatus(string $table, int $id): void
     {
         Http::requireRole(['Admin']);
         Http::verifyCsrf();
+        $returnTo = Http::returnTo('/' . $table);
 
         $active = ((string) ($_POST['active'] ?? '0')) === '1';
         $this->repository->setMasterActive($table, $id, $active);
@@ -205,7 +250,7 @@ final class MasterController
             'success',
             $active ? 'Data berhasil diaktifkan.' : 'Data berhasil dinonaktifkan.'
         );
-        Http::redirect('/' . $table);
+        Http::redirect($returnTo);
     }
 
     private function masterInput(string $table): array
@@ -219,12 +264,30 @@ final class MasterController
             'warehouses' => $common + [
                 'location' => trim((string) ($_POST['location'] ?? '')),
             ],
-            'suppliers', 'customers' => $common + [
+            'suppliers' => $common + [
+                'category_id' => (int) ($_POST['category_id'] ?? 0),
+                'contact' => trim((string) ($_POST['contact'] ?? '')),
+                'address' => trim((string) ($_POST['address'] ?? '')),
+            ],
+            'customers' => $common + [
                 'contact' => trim((string) ($_POST['contact'] ?? '')),
                 'address' => trim((string) ($_POST['address'] ?? '')),
             ],
             default => throw new \InvalidArgumentException('Master data tidak diizinkan.'),
         };
+    }
+
+    private function validSupplierCategory(string $table, array $data): bool
+    {
+        if ($table !== 'suppliers') {
+            return true;
+        }
+        foreach ($this->repository->activeOptions('categories') as $category) {
+            if ((int) $category['id'] === (int) ($data['category_id'] ?? 0)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private function storeProductImage(): ?string
@@ -258,5 +321,17 @@ final class MasterController
             throw new ProductImageStorageFailure('Gambar tidak dapat disimpan.');
         }
         return '/uploads/' . $name;
+    }
+
+    private function parseRupiahInput(mixed $value): float|false
+    {
+        $formatted = trim((string) $value);
+        if ($formatted === '' || preg_match('/^(?:\d+|\d{1,3}(?:\.\d{3})+)(?:,\d{1,2})?$/D', $formatted) !== 1) {
+            return false;
+        }
+
+        $normalized = str_replace(',', '.', str_replace('.', '', $formatted));
+        $amount = filter_var($normalized, FILTER_VALIDATE_FLOAT);
+        return $amount === false ? false : (float) $amount;
     }
 }

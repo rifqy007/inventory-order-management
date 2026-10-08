@@ -6,6 +6,4 @@ namespace App\Exception;
 
 use RuntimeException;
 
-final class ProductImageStorageFailure extends RuntimeException
-{
-}
+final class ProductImageStorageFailure extends RuntimeException {}

@@ -16,6 +16,21 @@ final class Http
         header('Location: ' . $path);
         exit;
     }
+    public static function returnTo(string $fallback): string
+    {
+        $candidate = (string) ($_POST['return_to'] ?? $_GET['return_to'] ?? '');
+        $parsed = parse_url($candidate);
+        if (
+            $candidate === '' || !str_starts_with($candidate, '/')
+            || str_starts_with($candidate, '//') || str_contains($candidate, '\\')
+            || preg_match('/[\r\n]/', $candidate) === 1 || $parsed === false
+            || isset($parsed['scheme']) || isset($parsed['host'])
+        ) {
+            return $fallback;
+        }
+
+        return $candidate;
+    }
     public static function user(): ?array
     {
         return $_SESSION['user'] ?? null;
@@ -63,6 +78,6 @@ final class Http
         $user = self::user(); // NOSONAR: layout.php renders the authenticated account details.
         $flash = $_SESSION['flash'] ?? null; // NOSONAR: layout.php renders and displays the flash message.
         unset($_SESSION['flash']);
-        require dirname(__DIR__, 2) . '/views/layout.php';
+        require_once dirname(__DIR__, 2) . '/views/layout.php';
     }
 }

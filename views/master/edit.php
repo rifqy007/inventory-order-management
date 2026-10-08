@@ -18,11 +18,23 @@ $title = $labels[$table] ?? 'Master Data';
 <section class="panel">
     <form method="post" action="/<?= Http::e($table) ?>/<?= (int) $row['id'] ?>" class="form-grid">
         <input type="hidden" name="_token" value="<?= Http::e(Http::csrf()) ?>">
+        <input type="hidden" name="return_to" value="<?= Http::e($returnTo) ?>">
 
         <label>
             Nama
-            <input type="text" name="name" value="<?= Http::e($row['name'] ?? '') ?>" required>
+        <input type="text" name="name" value="<?= Http::e($row['name'] ?? '') ?>" required>
         </label>
+
+        <?php if ($table === 'suppliers'): ?>
+            <label>Kategori produk
+                <select name="category_id" required>
+                    <option value="">Pilih kategori produk</option>
+                    <?php foreach ($categories as $category): ?>
+                        <option value="<?= (int) $category['id'] ?>" <?= (int) $row['category_id'] === (int) $category['id'] ? 'selected' : '' ?>><?= Http::e($category['name']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </label>
+        <?php endif; ?>
 
         <?php if ($table === 'categories'): ?>
             <label class="wide-field">
@@ -47,7 +59,7 @@ $title = $labels[$table] ?? 'Master Data';
 
         <div class="action-group">
             <button type="submit">Simpan Perubahan</button>
-            <a class="button button-secondary" href="/<?= Http::e($table) ?>">Batal</a>
+            <a class="button button-secondary" href="<?= Http::e($returnTo) ?>">Batal</a>
         </div>
     </form>
 </section>

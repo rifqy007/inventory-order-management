@@ -1,0 +1,12 @@
+* text=auto
+
+*.sh text eol=lf
+Dockerfile* text eol=lf
+
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+
+# *.sh        → selalu menggunakan LF untuk container Linux
+# Dockerfile  → selalu menggunakan LF
+# *.ps1       → menggunakan CRLF untuk PowerShell Windows
+# *.bat       → menggunakan CRLF untuk Windows batch

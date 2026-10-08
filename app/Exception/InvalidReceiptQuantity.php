@@ -6,6 +6,4 @@ namespace App\Exception;
 
 use RuntimeException;
 
-final class InvalidReceiptQuantity extends RuntimeException
-{
-}
+final class InvalidReceiptQuantity extends RuntimeException {}

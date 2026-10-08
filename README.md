@@ -39,7 +39,9 @@ docker compose exec app composer install --no-interaction
 docker compose ps
 ```
 
-Compose menjalankan aplikasi Apache/PHP, database MySQL aplikasi, dan database MySQL terpisah untuk integration test. Pada inisialisasi volume database yang masih kosong, schema, migration, dan data demo dimuat otomatis.
+Compose menjalankan aplikasi Apache/PHP, database MySQL aplikasi, dan database MySQL terpisah untuk integration test. Pada inisialisasi volume database yang masih kosong, schema, migration, dan data demo dimuat otomatis. Supplier terhubung ke satu kategori produk; saat membuat Purchase Order, pilihan produk dibatasi sesuai kategori supplier.
+
+Jika database lokal sudah berjalan sebelum fitur kategori supplier ditambahkan, jalankan migration `database/migrations/005-supplier-product-category.sql` satu kali pada database `inventory` (misalnya melalui phpMyAdmin/Workbench). Migration ini menambahkan kategori **Konsumsi** bila belum ada dan memberi kategori **ATK** sebagai nilai awal untuk supplier lama. Volume Docker yang sudah terinisialisasi tidak menjalankan ulang berkas init secara otomatis.
 
 Buka **http://localhost:8080**. Jika port 8080 sudah digunakan, ubah `APP_PORT` di `.env`. Port database host dapat diubah melalui `DB_HOST_PORT`.
 
@@ -124,6 +126,7 @@ docker compose exec app composer install --no-interaction
 - `docs/architecture/`: diagram as-built dan Architecture Decision Records.
 - `docs/quality/`: critique, refactoring log, static analysis, dan tech debt.
 - `docs/testing/`: skenario, hasil verifikasi, dan [checklist submission](docs/testing/submission-checklist.md).
+- `docs/presentation/`: panduan presentasi project selama 10 menit.
 - `ai-usage-log.md`: catatan penggunaan AI selama pengerjaan.
 
 Selesaikan checklist submission dari salinan final yang bersih sebelum submission. Hasil pengujian yang tersimpan di dokumentasi hanya menggambarkan tanggal dan kondisi source saat pengujian tersebut dilakukan.
@@ -139,4 +142,20 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 Skrip akan menjalankan unit dan integration test, membuat laporan coverage, lalu meminta token SonarQube secara tersembunyi. `SONAR_HOST_URL` dan `SONAR_PROJECT_KEY` dapat diatur di `.env` atau diberikan sebagai parameter skrip. Jangan menaruh token di `.env`, source, atau repository.
 
-Workflow `.github/workflows/sonarqube.yml` ditujukan untuk GitHub Actions. Workflow memerlukan secret `SONAR_TOKEN` serta variables `SONAR_HOST_URL` dan `SONAR_PROJECT_KEY` pada pengaturan repository GitHub. Server SonarQube harus dapat dijangkau oleh runner.
+### Catatan hasil scan
+
+Snapshot **Overall Code** dari dashboard SonarQube pada 7 Oktober 2026:
+
+| Metrik | Hasil |
+| --- | ---: |
+| Security | B — 1 open issue |
+| Reliability | B — 1 open issue |
+| Maintainability | A — 9 open issues |
+| Accepted issues | 0 |
+| Coverage | 45.0% pada sekitar 1.7k lines to cover |
+| Duplications | 2.4% pada sekitar 5.5k lines |
+| Security Hotspots | A — 0 |
+
+Pada pemindaian 8 Oktober 2026, PHPUnit melaporkan **24 test lulus dengan 83 assertion**. Analisis berhasil diunggah, tetapi Quality Gate **gagal** karena coverage New Code **21,8%**, di bawah ambang **80%**. Hasil ini perlu diperbarui setelah coverage New Code diperbaiki dan scan dijalankan ulang.
+
+Pemindaian SonarQube di project ini dijalankan manual dari komputer lokal. Konfigurasi dan skripnya disimpan di `sonar-project.properties` serta `scripts/sonar-scan.ps1`; token diminta saat skrip berjalan dan tidak disimpan dalam repository. CI/CD tidak diperlukan oleh project brief.

@@ -6,10 +6,11 @@ use App\Support\Http;
 ?>
 <section class="page-heading">
     <div><span class="eyebrow">PENJUALAN</span><h1>Buat Sales Order</h1><p>Pilih customer, gudang, dan produk untuk membuat draft pesanan.</p></div>
-    <a class="button button-secondary" href="/sales-orders/workflow">Kembali ke daftar</a>
+    <a class="button button-secondary" href="<?= Http::e($returnTo) ?>">Kembali ke daftar</a>
 </section>
 <form class="panel order-form" method="post" action="/sales-orders/workflow">
     <input type="hidden" name="_token" value="<?= Http::e(Http::csrf()) ?>">
+    <input type="hidden" name="return_to" value="<?= Http::e($returnTo) ?>">
     <section class="form-section">
         <div class="form-section-heading"><span class="step-number">1</span><div><h2>Informasi pesanan</h2><p>Tentukan customer dan lokasi pengambilan barang.</p></div></div>
         <div class="form-grid">

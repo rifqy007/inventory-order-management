@@ -17,4 +17,4 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
 
-CMD ["sh", "-c", "XDEBUG_MODE=coverage composer test -- --coverage-clover=coverage.xml"]
+CMD ["sh", "-c", "XDEBUG_MODE=coverage vendor/bin/phpunit -c phpunit.coverage.xml --coverage-clover=coverage.xml --log-junit=junit.xml"]

@@ -5,13 +5,15 @@ declare(strict_types=1);
 use App\Support\Http;
 use App\Support\RoutePath;
 use App\Support\TableView;
+use App\Support\DisplayText;
 
 $pages = max(1, (int) ceil($total / $filters['per_page']));
 $query = $filters;
+$returnTo = RoutePath::PURCHASE_WORKFLOW . '?' . http_build_query($query);
 
 
 ?>
-<section class="page-heading"><div><span class="eyebrow">PEMBELIAN</span><h1>Purchase Order</h1><p>Kelola pemesanan barang kepada supplier dan pantau penerimaan.</p></div><a class="button" href="<?= RoutePath::PURCHASE_WORKFLOW ?>/new">＋ Buat Purchase Order</a></section>
+<section class="page-heading"><div><span class="eyebrow">PEMBELIAN</span><h1>Purchase Order</h1><p>Kelola pemesanan barang kepada supplier dan pantau penerimaan.</p></div><a class="button" href="<?= RoutePath::PURCHASE_WORKFLOW ?>/new?return_to=<?= rawurlencode($returnTo) ?>">＋ Buat Purchase Order</a></section>
 <details class="filter-disclosure" <?= ($filters['q'] !== '' || $filters['status'] !== '') ? 'open' : '' ?>>
     <summary><span class="filter-summary-icon">⌕</span><span><strong>Cari dan filter pesanan</strong><small>Nomor order, supplier, dan status</small></span><span class="summary-chevron">⌄</span></summary>
     <form class="filter-content" method="get" action="<?= RoutePath::PURCHASE_WORKFLOW ?>">
@@ -19,7 +21,7 @@ $query = $filters;
             <label for="q">Nomor order atau supplier<input id="q" name="q" value="<?= Http::e($filters['q']) ?>" placeholder="Cari nomor atau nama supplier" autocomplete="off"></label>
             <label for="status">Status pesanan<select id="status" name="status"><option value="">Semua status</option><?php foreach (['Draft', 'Ordered', 'PartiallyReceived', 'Received', 'Cancelled'] as $status) :
                 ?><option value="<?= $status ?>" <?= $filters['status'] === $status ? 'selected' : '' ?>><?= Http::e(match ($status) {
-                'Ordered' => 'Dipesan', 'PartiallyReceived' => 'Diterima sebagian', 'Received' => 'Diterima', 'Cancelled' => 'Dibatalkan', default => $status
+                default => DisplayText::orderStatus($status)
                 }) ?></option><?php
                                                                                                                       endforeach; ?></select></label>
         </div>
@@ -33,7 +35,7 @@ $query = $filters;
 else :
     foreach ($rows as $r) :
         ?><tr>
-    <td data-label="Nomor"><?= Http::e($r['order_number']) ?></td><td data-label="Supplier"><?= Http::e($r['supplier']) ?></td><td data-label="Tanggal"><?= Http::e($r['order_date']) ?></td><td data-label="Status"><span class="badge"><?= Http::e($r['status']) ?></span></td><td data-label="Aksi"><a class="button button-secondary" href="<?= RoutePath::PURCHASE_WORKFLOW ?>/<?= (int) $r['id'] ?>">Detail</a></td>
+    <td data-label="Nomor"><?= Http::e($r['order_number']) ?></td><td data-label="Supplier"><?= Http::e($r['supplier']) ?></td><td data-label="Tanggal"><?= Http::e($r['order_date']) ?></td><td data-label="Status"><span class="badge"><?= Http::e(DisplayText::orderStatus((string) $r['status'])) ?></span></td><td data-label="Aksi"><a class="button button-secondary" href="<?= RoutePath::PURCHASE_WORKFLOW ?>/<?= (int) $r['id'] ?>?return_to=<?= rawurlencode($returnTo) ?>">Detail</a></td>
 </tr>
     <?php endforeach;
 endif; ?></tbody></table></div>

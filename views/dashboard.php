@@ -55,9 +55,9 @@ $roleContent = match ($role) {
 };
 
 $metricInfo = [
-    'Nilai inventori' => ['icon' => 'Rp', 'note' => 'Nilai stok berdasarkan harga beli', 'href' => $productsPath, 'tone' => 'blue', 'money' => true],
-    'Produk aktif' => ['icon' => 'ST', 'note' => 'Produk tersedia di katalog', 'href' => $productsPath, 'tone' => 'teal'],
-    'Low stock' => ['icon' => '!', 'note' => 'Produk perlu diperiksa', 'href' => $productsPath . '?stock=low', 'tone' => 'orange'],
+    'Nilai inventori' => ['icon' => 'Rp', 'note' => 'Σ (stok tiap gudang × harga beli produk)', 'href' => $productsPath, 'tone' => 'blue', 'money' => true],
+    'Produk aktif' => ['icon' => 'ST', 'note' => 'Produk tersedia di katalog', 'href' => $productsPath . '?active=1', 'tone' => 'teal'],
+    'Low stock' => ['icon' => '!', 'note' => 'Produk aktif di bawah reorder point', 'href' => $productsPath . '?stock=low&active=1', 'tone' => 'orange'],
     'SO menunggu approval' => ['icon' => 'SO', 'note' => 'Menunggu tindakan Admin', 'href' => $pendingSalesPath, 'tone' => 'purple'],
     'PO menunggu penerimaan' => ['icon' => 'PO', 'note' => 'Pesanan siap diproses gudang', 'href' => $purchaseWorkflowPath, 'tone' => 'blue'],
     'Order saya' => ['icon' => 'SO', 'note' => 'Total pesanan yang Anda buat', 'href' => $salesWorkflowPath, 'tone' => 'blue'],
@@ -69,6 +69,21 @@ $metricInfo = [
     'Goods receipt' => ['icon' => 'PO', 'note' => 'Purchase Order menunggu penerimaan', 'href' => $purchaseWorkflowPath, 'tone' => 'blue'],
     'Goods issue' => ['icon' => 'SO', 'note' => 'Sales Order siap dikeluarkan', 'href' => $approvedSalesPath, 'tone' => 'purple'],
     'Movement hari ini' => ['icon' => '↗', 'note' => 'Mutasi stok tercatat hari ini', 'href' => '/stock-ledger', 'tone' => 'teal'],
+];
+$metricLabels = [
+    'Nilai inventori' => 'Nilai inventaris',
+    'Low stock' => 'Stok menipis',
+    'SO menunggu approval' => 'Pesanan penjualan menunggu persetujuan',
+    'PO menunggu penerimaan' => 'Pesanan pembelian menunggu penerimaan',
+    'Order saya' => 'Pesanan saya',
+    'Draft' => 'Draf',
+    'Pending approval' => 'Menunggu persetujuan',
+    'Approved' => 'Disetujui',
+    'Fulfilled' => 'Selesai',
+    'Cancelled' => 'Dibatalkan',
+    'Goods receipt' => 'Penerimaan barang',
+    'Goods issue' => 'Pengeluaran barang',
+    'Movement hari ini' => 'Mutasi stok hari ini',
 ];
 ?>
 <section class="dashboard-hero">
@@ -90,7 +105,7 @@ $metricInfo = [
         <?php foreach ($metrics as $label => $value): $info = $metricInfo[$label] ?? ['icon' => '•', 'note' => 'Ringkasan operasional', 'href' => '/dashboard', 'tone' => 'blue']; ?>
             <a class="metric-card metric-<?= Http::e($info['tone']) ?>" href="<?= Http::e($info['href']) ?>">
                 <span class="metric-icon" aria-hidden="true"><?= Http::e($info['icon']) ?></span>
-                <span class="metric-label"><?= Http::e($label) ?></span>
+                <span class="metric-label"><?= Http::e($metricLabels[$label] ?? $label) ?></span>
                 <strong class="metric-value"><?php if (!empty($info['money'])): ?>Rp <?= number_format((float) $value, 0, ',', '.') ?><?php else: ?><?= number_format((float) $value, 0, ',', '.') ?><?php endif; ?></strong>
                 <span class="metric-note"><?= Http::e($info['note']) ?></span>
                 <span class="metric-arrow" aria-hidden="true">↗</span>

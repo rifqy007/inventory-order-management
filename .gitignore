@@ -12,6 +12,11 @@
 /junit.xml
 /coverage.xml
 /.scannerwork/
+/.sonar/
+
+# SonarQube exports generated for local issue/coverage triage.
+/sonarqube-*.csv
+/sonarqube-*.json
 
 # Uploaded user files are runtime data, not source assets.
 /public/uploads/*

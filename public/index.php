@@ -16,6 +16,8 @@ declare(strict_types=1);
 use App\Support\Http;
 
 const LOGIN_PATH = '/login';
+const JSON_CONTENT_TYPE = 'Content-Type: application/json; charset=utf-8';
+const HTML_CONTENT_TYPE = 'Content-Type: text/html; charset=utf-8';
 
 /**
  * Mengambil HTTP method dari request.
@@ -555,7 +557,7 @@ try {
             $matches
         ) === 1
     ) {
-        header('Content-Type: application/json; charset=utf-8');
+        header(JSON_CONTENT_TYPE);
         if (Http::user() === null) {
             http_response_code(401);
             echo json_encode(['error' => 'Autentikasi diperlukan.']);
@@ -600,7 +602,7 @@ try {
          */
     } elseif (str_starts_with($path, '/api/')) {
         http_response_code(404);
-        header('Content-Type: application/json; charset=utf-8');
+        header(JSON_CONTENT_TYPE);
         echo json_encode(
             ['error' => 'Endpoint tidak ditemukan.'],
             JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
@@ -630,25 +632,25 @@ try {
     http_response_code(500);
 
     if (str_starts_with($path, '/api/')) {
-        header('Content-Type: application/json; charset=utf-8', true);
+        header(JSON_CONTENT_TYPE, true);
         echo json_encode(
             ['error' => 'Terjadi kesalahan internal.'],
             JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
         );
     } elseif (class_exists(Http::class)) {
-        header('Content-Type: text/html; charset=utf-8', true);
+        header(HTML_CONTENT_TYPE, true);
         try {
             Http::view('errors/500');
         } catch (Throwable $renderException) {
             error_log((string) $renderException);
-            header('Content-Type: text/html; charset=utf-8', true);
+            header(HTML_CONTENT_TYPE, true);
             echo '<!doctype html><html lang="id"><meta charset="utf-8">'
                 . '<title>Kesalahan Internal</title><h1>500</h1>'
                 . '<p>Aplikasi tidak dapat menyelesaikan permintaan saat ini.</p>'
                 . '</html>';
         }
     } else {
-        header('Content-Type: text/html; charset=utf-8', true);
+        header(HTML_CONTENT_TYPE, true);
         echo '<!doctype html><html lang="id"><meta charset="utf-8">'
             . '<title>Kesalahan Internal</title><h1>500</h1>'
             . '<p>Aplikasi tidak dapat menyelesaikan permintaan saat ini.</p>'

@@ -14,7 +14,7 @@ services:
     depends_on:
       db-test:
         condition: service_healthy
-    command: sh -c 'composer install --no-interaction --prefer-dist --no-progress && XDEBUG_MODE=coverage vendor/bin/phpunit -c phpunit.coverage.xml --coverage-clover=coverage.xml'
+    command: sh -c 'composer install --no-interaction --prefer-dist --no-progress && XDEBUG_MODE=coverage vendor/bin/phpunit -c phpunit.coverage.xml --coverage-clover=coverage.xml --log-junit=junit.xml'
   app:
     build: .
     ports:
@@ -53,6 +53,7 @@ services:
       - ./database/migrations/002-complete-workflow.sql:/docker-entrypoint-initdb.d/02-complete-workflow.sql:ro
       - ./database/migrations/003-product-image.sql:/docker-entrypoint-initdb.d/03-product-image.sql:ro
       - ./database/migrations/004-demo-order-data.sql:/docker-entrypoint-initdb.d/04-demo-order-data.sql:ro
+      - ./database/migrations/005-supplier-product-category.sql:/docker-entrypoint-initdb.d/05-supplier-product-category.sql:ro
     healthcheck:
       test: ['CMD-SHELL', 'mysqladmin ping -h localhost -p"$${MYSQL_ROOT_PASSWORD}" --silent']
       interval: 5s
@@ -71,6 +72,7 @@ services:
       - ./database/migrations/002-complete-workflow.sql:/docker-entrypoint-initdb.d/02-complete-workflow.sql:ro
       - ./database/migrations/003-product-image.sql:/docker-entrypoint-initdb.d/03-product-image.sql:ro
       - ./database/migrations/004-demo-order-data.sql:/docker-entrypoint-initdb.d/04-demo-order-data.sql:ro
+      - ./database/migrations/005-supplier-product-category.sql:/docker-entrypoint-initdb.d/05-supplier-product-category.sql:ro
     healthcheck:
       test: ['CMD-SHELL', 'mysqladmin ping -h localhost -p"$${MYSQL_ROOT_PASSWORD}" --silent']
       interval: 5s

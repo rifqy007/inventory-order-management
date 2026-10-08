@@ -5,15 +5,17 @@ declare(strict_types=1);
 use App\Support\Http;
 use App\Support\RoutePath;
 use App\Support\TableView;
+use App\Support\DisplayText;
 
 $pages = max(1, (int) ceil($total / $filters['per_page']));
 $query = $filters;
 unset($query['owner']);
+$returnTo = RoutePath::SALES_WORKFLOW . '?' . http_build_query($query);
 
 
 ?>
 <section class="page-heading"><div><span class="eyebrow">PENJUALAN</span><h1>Sales Order</h1><p><?= $user['role'] === 'WarehouseStaff' ? 'Lihat pesanan yang disetujui dan proses pengeluaran barang.' : 'Kelola pesanan penjualan dan pantau proses persetujuannya.' ?></p></div><?php if (in_array($user['role'], ['Admin', 'Sales'], true)) :
-    ?><a class="button" href="<?= RoutePath::SALES_WORKFLOW ?>/new">＋ Buat Sales Order</a><?php
+    ?><a class="button" href="<?= RoutePath::SALES_WORKFLOW ?>/new?return_to=<?= rawurlencode($returnTo) ?>">＋ Buat Sales Order</a><?php
                                                                                                 endif; ?></section>
 <details class="filter-disclosure" <?= ($filters['q'] !== '' || $filters['status'] !== '') ? 'open' : '' ?>>
     <summary><span class="filter-summary-icon">⌕</span><span><strong>Cari dan filter pesanan</strong><small>Nomor order, customer, dan status</small></span><span class="summary-chevron">⌄</span></summary>
@@ -22,7 +24,7 @@ unset($query['owner']);
             <label for="q">Nomor order atau customer<input id="q" name="q" value="<?= Http::e($filters['q']) ?>" placeholder="Cari nomor atau nama customer" autocomplete="off"></label>
             <label for="status">Status pesanan<select id="status" name="status"><option value="">Semua status</option><?php foreach (['Draft', 'PendingApproval', 'Approved', 'Fulfilled', 'Cancelled'] as $status) :
                 ?><option value="<?= $status ?>" <?= $filters['status'] === $status ? 'selected' : '' ?>><?= Http::e(match ($status) {
-                'PendingApproval' => 'Menunggu persetujuan', 'Approved' => 'Disetujui', 'Fulfilled' => 'Selesai', 'Cancelled' => 'Dibatalkan', default => $status
+                default => DisplayText::orderStatus($status)
                 }) ?></option><?php
                                                                                                                       endforeach; ?></select></label>
         </div>
@@ -36,7 +38,7 @@ unset($query['owner']);
 else :
     foreach ($rows as $r) :
         ?><tr>
-    <td data-label="Nomor"><?= Http::e($r['order_number']) ?></td><td data-label="Customer"><?= Http::e($r['customer']) ?></td><td data-label="Pembuat"><?= Http::e($r['creator']) ?></td><td data-label="Tanggal"><?= Http::e($r['order_date']) ?></td><td data-label="Status"><span class="badge"><?= Http::e($r['status']) ?></span></td><td data-label="Aksi"><a class="button button-secondary" href="<?= RoutePath::SALES_WORKFLOW ?>/<?= (int) $r['id'] ?>">Detail</a></td>
+    <td data-label="Nomor"><?= Http::e($r['order_number']) ?></td><td data-label="Customer"><?= Http::e($r['customer']) ?></td><td data-label="Pembuat"><?= Http::e($r['creator']) ?></td><td data-label="Tanggal"><?= Http::e($r['order_date']) ?></td><td data-label="Status"><span class="badge"><?= Http::e(DisplayText::orderStatus((string) $r['status'])) ?></span></td><td data-label="Aksi"><a class="button button-secondary" href="<?= RoutePath::SALES_WORKFLOW ?>/<?= (int) $r['id'] ?>?return_to=<?= rawurlencode($returnTo) ?>">Detail</a></td>
 </tr>
     <?php endforeach;
 endif; ?></tbody></table></div>

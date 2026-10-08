@@ -22,7 +22,7 @@ final class OrderService
         }
         $items = $this->validatedItems($items);
         if ((int) ($header['customer_id'] ?? 0) < 1 || (int) ($header['warehouse_id'] ?? 0) < 1) {
-            throw new DomainException('Customer dan gudang wajib dipilih.');
+            throw new DomainException('Pelanggan dan gudang wajib dipilih.');
         }
         $header['created_by'] = $userId;
         $this->orders->begin();
@@ -45,7 +45,7 @@ final class OrderService
         }
         $items = $this->validatedItems($items);
         if ((int) ($header['supplier_id'] ?? 0) < 1 || (int) ($header['warehouse_id'] ?? 0) < 1) {
-            throw new DomainException('Supplier dan gudang wajib dipilih.');
+            throw new DomainException('Pemasok dan gudang wajib dipilih.');
         }
         $header['created_by'] = $userId;
         $this->orders->begin();
@@ -64,7 +64,7 @@ final class OrderService
     private function validatedItems(array $items): array
     {
         if ($items === []) {
-            throw new DomainException('Order minimal memiliki satu item.');
+            throw new DomainException('Pesanan harus memiliki setidaknya satu produk.');
         }
         $validated = [];
         $seen = [];
@@ -72,11 +72,17 @@ final class OrderService
             $productId = (int) ($item['product_id'] ?? 0);
             $quantity = (int) ($item['quantity'] ?? 0);
             $price = filter_var($item['price'] ?? null, FILTER_VALIDATE_FLOAT);
-            if ($productId < 1 || $quantity < 1 || $price === false || $price < 0) {
-                throw new DomainException('Produk, jumlah, atau harga item tidak valid.');
+            if ($productId < 1) {
+                throw new DomainException('Pilih produk yang akan dipesan.');
+            }
+            if ($quantity < 1) {
+                throw new DomainException('Jumlah produk harus diisi minimal 1.');
+            }
+            if ($price === false || $price < 0) {
+                throw new DomainException('Harga produk tidak valid.');
             }
             if (isset($seen[$productId])) {
-                throw new DomainException('Produk yang sama tidak boleh muncul lebih dari sekali.');
+                throw new DomainException('Produk yang sama tidak boleh ditambahkan lebih dari sekali.');
             }
             $seen[$productId] = true;
             $validated[] = ['product_id' => $productId, 'quantity' => $quantity, 'price' => (float) $price];
@@ -88,10 +94,10 @@ final class OrderService
         $o = $this->requiredSo($id);
         SalesOrder::fromRecord($o)->transitionTo('PendingApproval');
         if ($role === 'Sales' && (int)$o['created_by'] !== $userId) {
-            throw new DomainException('Sales hanya dapat mengajukan order miliknya sendiri.');
+            throw new DomainException('Sales hanya dapat mengajukan pesanan miliknya sendiri.');
         }
         if (!$this->orders->changeSalesOrderStatus($id, 'Draft', 'PendingApproval', ['submitted' => true])) {
-            throw new DomainException('Order hanya dapat diajukan dari status Draft.');
+            throw new DomainException('Pesanan hanya dapat diajukan saat berstatus Draf.');
         }
     }
     public function approveSalesOrder(int $id, int $userId, string $role): void
@@ -101,10 +107,10 @@ final class OrderService
         }$o = $this->requiredSo($id);
         SalesOrder::fromRecord($o)->transitionTo('Approved');
         if ((int)$o['created_by'] === $userId) {
-            throw new DomainException('Pembuat order tidak boleh menyetujui order yang sama.');
+            throw new DomainException('Pembuat pesanan tidak boleh menyetujui pesanannya sendiri.');
         }
         if (!$this->orders->changeSalesOrderStatus($id, 'PendingApproval', 'Approved', ['approved_by' => $userId])) {
-            throw new DomainException('Order bukan dalam status Menunggu Persetujuan.');
+            throw new DomainException('Pesanan tidak sedang menunggu persetujuan.');
         }
     }
     public function rejectSalesOrder(int $id, int $userId, string $role, string $reason): void
@@ -117,7 +123,7 @@ final class OrderService
         }$o = $this->requiredSo($id);
         SalesOrder::fromRecord($o)->transitionTo('Cancelled');
         if ((int)$o['created_by'] === $userId) {
-            throw new DomainException('Pembuat order tidak boleh menolak order yang sama.');
+            throw new DomainException('Pembuat pesanan tidak boleh menolak pesanannya sendiri.');
         }
         if (!$this->orders->changeSalesOrderStatus($id, 'PendingApproval', 'Cancelled', ['reason' => $reason])) {
             throw new DomainException('Order tidak dapat ditolak pada status sekarang.');
@@ -132,13 +138,13 @@ final class OrderService
         $order = $this->requiredSo($id);
         SalesOrder::fromRecord($order)->transitionTo('Cancelled');
         if ($role === 'Sales' && (int) $order['created_by'] !== $userId) {
-            throw new DomainException('Sales hanya dapat membatalkan order miliknya sendiri.');
+            throw new DomainException('Sales hanya dapat membatalkan pesanan miliknya sendiri.');
         }
         if (!in_array($order['status'], ['Draft', 'PendingApproval', 'Approved'], true)) {
             throw new DomainException('Sales Order tidak dapat dibatalkan pada status sekarang.');
         }
         if (!$this->orders->changeSalesOrderStatus($id, $order['status'], 'Cancelled')) {
-            throw new DomainException('Status order berubah saat diproses.');
+            throw new DomainException('Status pesanan berubah saat diproses. Muat ulang halaman lalu coba lagi.');
         }
     }
     public function fulfillSalesOrder(int $id, int $userId, string $role): void
@@ -148,7 +154,7 @@ final class OrderService
         }$o = $this->requiredSo($id);
         SalesOrder::fromRecord($o)->transitionTo('Fulfilled');
         if ($o['status'] !== 'Approved') {
-            throw new DomainException('Goods issue hanya dapat diproses untuk order Disetujui.');
+            throw new DomainException('Pengeluaran barang hanya dapat diproses untuk pesanan yang sudah disetujui.');
         }$this->orders->begin();
         try {
             foreach ($o['items'] as $item) {
@@ -160,7 +166,7 @@ final class OrderService
                 $this->orders->addLedger($this->ledger($item, $o, 'Issue', $before, $after, $userId, 'SO'));
             }
             if (!$this->orders->changeSalesOrderStatus($id, 'Approved', 'Fulfilled', ['fulfilled' => true])) {
-                throw new DomainException('Status order berubah saat diproses.');
+                throw new DomainException('Status pesanan berubah saat diproses. Muat ulang halaman lalu coba lagi.');
             }$this->orders->commit();
         } catch (Throwable $e) {
             if ($this->orders->inTransaction()) {
@@ -175,7 +181,7 @@ final class OrderService
             throw new DomainException('Anda tidak berwenang mengirim Purchase Order.');
         }
         if (!$this->orders->changePurchaseOrderStatus($id, ['Draft'], 'Ordered')) {
-            throw new DomainException('PO hanya dapat dikirim dari status Draft.');
+            throw new DomainException('Pesanan pembelian hanya dapat dikirim saat berstatus Draf.');
         }
     }
 
@@ -200,7 +206,7 @@ final class OrderService
             throw new DomainException('Anda tidak berwenang menerima barang.');
         }$o = $this->requiredPo($id);
         if (!in_array($o['status'], ['Ordered','PartiallyReceived'], true)) {
-            throw new DomainException('PO tidak dapat diterima pada status sekarang.');
+            throw new DomainException('Penerimaan barang tidak dapat dilakukan pada status pesanan saat ini.');
         }$this->orders->begin();
         try {
             $complete = true;
@@ -208,7 +214,7 @@ final class OrderService
                 $qty = (int)($received[$item['id']] ?? 0);
                 $remaining = (int)$item['quantity'] - (int)$item['received_quantity'];
                 if ($qty < 0 || $qty > $remaining) {
-                    throw new DomainException('Jumlah penerimaan ' . $item['sku'] . ' tidak valid.');
+                    throw new DomainException('Jumlah penerimaan untuk SKU ' . $item['sku'] . ' tidak valid atau melebihi sisa pesanan.');
                 }
                 if ($qty > 0) {
                     $before = $this->orders->lockStock((int)$item['product_id'], (int)$o['warehouse_id']);
@@ -224,7 +230,7 @@ final class OrderService
                 }
             }
             if (!$this->orders->changePurchaseOrderStatus($id, ['Ordered','PartiallyReceived'], $complete ? 'Received' : 'PartiallyReceived')) {
-                throw new DomainException('Status PO berubah saat diproses.');
+                throw new DomainException('Status pesanan pembelian berubah saat diproses. Muat ulang halaman lalu coba lagi.');
             }$this->orders->commit();
         } catch (Throwable $e) {
             if ($this->orders->inTransaction()) {

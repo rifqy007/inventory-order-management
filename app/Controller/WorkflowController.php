@@ -13,7 +13,9 @@ use Throwable;
 
 final class WorkflowController
 {
-    private const PURCHASE_WORKFLOW_PATH = '/purchase-orders/workflow/';
+    private const SALES_WORKFLOW_BASE_PATH = '/sales-orders/workflow';
+    private const PURCHASE_WORKFLOW_BASE_PATH = '/purchase-orders/workflow';
+    private const PURCHASE_WORKFLOW_PATH = self::PURCHASE_WORKFLOW_BASE_PATH . '/';
     private const NOT_FOUND_VIEW = 'errors/404';
 
     public function __construct(
@@ -30,6 +32,7 @@ final class WorkflowController
             'customers' => $this->inventory->activeOptions('customers'),
             'warehouses' => $this->inventory->activeOptions('warehouses'),
             'products' => $this->inventory->activeProducts(),
+            'returnTo' => Http::returnTo(self::SALES_WORKFLOW_BASE_PATH),
         ]);
     }
 
@@ -37,6 +40,7 @@ final class WorkflowController
     {
         $user = Http::requireRole(['Admin', 'Sales']);
         Http::verifyCsrf();
+        $returnTo = Http::returnTo(self::SALES_WORKFLOW_BASE_PATH);
         try {
             $items = $this->postedItems('selling_price');
             $id = $this->service->createSalesOrder([
@@ -44,20 +48,22 @@ final class WorkflowController
                 'customer_id' => (int) ($_POST['customer_id'] ?? 0),
                 'warehouse_id' => (int) ($_POST['warehouse_id'] ?? 0),
             ], $items, $user['id'], $user['role']);
-            Http::redirect('/sales-orders/workflow/' . $id);
+            Http::redirect(self::SALES_WORKFLOW_BASE_PATH . '/' . $id . '?return_to=' . rawurlencode($returnTo));
         } catch (Throwable $e) {
             Http::flash('error', $e instanceof \DomainException ? $e->getMessage() : 'Sales Order gagal dibuat.');
-            Http::redirect('/sales-orders/workflow/new');
+            Http::redirect(self::SALES_WORKFLOW_BASE_PATH . '/new?return_to=' . rawurlencode($returnTo));
         }
     }
 
     public function purchaseCreateForm(): void
     {
         Http::requireRole(['Admin', 'WarehouseStaff']);
+        $suppliers = $this->inventory->activeOptions('suppliers');
         Http::view('workflow/purchase-create', [
-            'suppliers' => $this->inventory->activeOptions('suppliers'),
+            'suppliers' => $suppliers,
             'warehouses' => $this->inventory->activeOptions('warehouses'),
             'products' => $this->inventory->activeProducts(),
+            'returnTo' => Http::returnTo(self::PURCHASE_WORKFLOW_BASE_PATH),
         ]);
     }
 
@@ -65,20 +71,32 @@ final class WorkflowController
     {
         $user = Http::requireRole(['Admin', 'WarehouseStaff']);
         Http::verifyCsrf();
+        $returnTo = Http::returnTo(self::PURCHASE_WORKFLOW_BASE_PATH);
         try {
+            $supplierId = (int) ($_POST['supplier_id'] ?? 0);
+            $supplier = null;
+            foreach ($this->inventory->activeOptions('suppliers') as $availableSupplier) {
+                if ((int) $availableSupplier['id'] === $supplierId) {
+                    $supplier = $availableSupplier;
+                    break;
+                }
+            }
+            if ($supplier === null) {
+                throw new \DomainException('Pilih supplier yang aktif.');
+            }
             $id = $this->service->createPurchaseOrder([
                 'order_number' => 'PO-' . date('YmdHis') . '-' . strtoupper(bin2hex(random_bytes(2))),
-                'supplier_id' => (int) ($_POST['supplier_id'] ?? 0),
+                'supplier_id' => $supplierId,
                 'warehouse_id' => (int) ($_POST['warehouse_id'] ?? 0),
-            ], $this->postedItems('purchase_price'), $user['id'], $user['role']);
-            Http::redirect(self::PURCHASE_WORKFLOW_PATH . $id);
+            ], $this->postedItems('purchase_price', (int) $supplier['category_id']), $user['id'], $user['role']);
+            Http::redirect(self::PURCHASE_WORKFLOW_PATH . $id . '?return_to=' . rawurlencode($returnTo));
         } catch (Throwable $e) {
             Http::flash('error', $e instanceof \DomainException ? $e->getMessage() : 'Purchase Order gagal dibuat.');
-            Http::redirect('/purchase-orders/workflow/new');
+            Http::redirect(self::PURCHASE_WORKFLOW_BASE_PATH . '/new?return_to=' . rawurlencode($returnTo));
         }
     }
 
-    private function postedItems(string $priceColumn): array
+    private function postedItems(string $priceColumn, ?int $categoryId = null): array
     {
         $productIds = (array) ($_POST['product_id'] ?? []);
         $quantities = (array) ($_POST['quantity'] ?? []);
@@ -92,8 +110,8 @@ final class WorkflowController
                 continue;
             }
             $id = (int) $productId;
-            if (!isset($catalog[$id])) {
-                throw new \DomainException('Produk yang dipilih tidak tersedia.');
+            if (!isset($catalog[$id]) || ($categoryId !== null && (int) $catalog[$id]['category_id'] !== $categoryId)) {
+                throw new \DomainException('Produk yang dipilih tidak tersedia untuk kategori supplier ini.');
             }
             $items[] = [
                 'product_id' => $id,
@@ -113,7 +131,7 @@ final class WorkflowController
             'q' => trim((string) ($_GET['q'] ?? '')),
             'page' => max(1, (int) ($_GET['page'] ?? 1)),
             'per_page' => (int) ($_GET['per_page'] ?? 10),
-            'direction' => (string) ($_GET['direction'] ?? 'desc'),
+            'direction' => (string) ($_GET['direction'] ?? 'asc'),
             'sort' => (string) ($_GET['sort'] ?? 'order_date'),
         ];
         $options = ListOptions::fromRequest($filters, ['order_number', 'customer', 'creator', 'order_date', 'status'], 'order_date');
@@ -121,13 +139,15 @@ final class WorkflowController
         $filters['per_page'] = $options->perPage;
         $filters['direction'] = $options->direction;
         $filters['sort'] = $options->sort;
+        $total = $this->repo->salesOrderCount($filters);
+        $filters['page'] = min($filters['page'], max(1, (int) ceil($total / $filters['per_page'])));
 
         Http::view(
             'workflow/sales-list',
             [
                 'rows' => $this->repo->salesOrders($filters),
                 'filters' => $filters,
-                'total' => $this->repo->salesOrderCount($filters),
+                'total' => $total,
             ]
         );
     }
@@ -157,6 +177,7 @@ final class WorkflowController
             'workflow/sales-detail',
             [
                 'order' => $o,
+                'returnTo' => Http::returnTo(self::SALES_WORKFLOW_BASE_PATH),
             ]
         );
     }
@@ -207,15 +228,15 @@ final class WorkflowController
 
             Http::flash(
                 'success',
-                'Sales Order berhasil diproses.'
+                'Pesanan penjualan berhasil diproses.'
             );
         } catch (\DomainException $e) {
             Http::flash('error', $e->getMessage());
         } catch (Throwable) {
-            Http::flash('error', 'Sales Order gagal diproses. Coba lagi.');
+            Http::flash('error', 'Pesanan penjualan gagal diproses. Silakan coba lagi.');
         }
 
-        Http::redirect('/sales-orders/workflow/' . $id);
+        Http::redirect(Http::returnTo('/sales-orders/workflow/' . $id));
     }
 
     public function purchaseList(): void
@@ -230,7 +251,7 @@ final class WorkflowController
             'q' => trim((string) ($_GET['q'] ?? '')),
             'page' => max(1, (int) ($_GET['page'] ?? 1)),
             'per_page' => (int) ($_GET['per_page'] ?? 10),
-            'direction' => (string) ($_GET['direction'] ?? 'desc'),
+            'direction' => (string) ($_GET['direction'] ?? 'asc'),
             'sort' => (string) ($_GET['sort'] ?? 'order_date'),
         ];
         $options = ListOptions::fromRequest($filters, ['order_number', 'supplier', 'order_date', 'status'], 'order_date');
@@ -238,12 +259,14 @@ final class WorkflowController
         $filters['per_page'] = $options->perPage;
         $filters['direction'] = $options->direction;
         $filters['sort'] = $options->sort;
+        $total = $this->repo->purchaseOrderCount($filters);
+        $filters['page'] = min($filters['page'], max(1, (int) ceil($total / $filters['per_page'])));
         Http::view(
             'workflow/purchase-list',
             [
                 'rows' => $this->repo->purchaseOrders($filters),
                 'filters' => $filters,
-                'total' => $this->repo->purchaseOrderCount($filters),
+                'total' => $total,
             ]
         );
     }
@@ -266,6 +289,7 @@ final class WorkflowController
             'workflow/purchase-detail',
             [
                 'order' => $o,
+                'returnTo' => Http::returnTo(self::PURCHASE_WORKFLOW_BASE_PATH),
             ]
         );
     }
@@ -287,15 +311,15 @@ final class WorkflowController
 
             Http::flash(
                 'success',
-                'Purchase Order berhasil dikirim.'
+                'Pesanan pembelian berhasil dikirim.'
             );
         } catch (\DomainException $e) {
             Http::flash('error', $e->getMessage());
         } catch (Throwable) {
-            Http::flash('error', 'Purchase Order gagal diproses. Coba lagi.');
+            Http::flash('error', 'Pesanan pembelian gagal diproses. Silakan coba lagi.');
         }
 
-            Http::redirect(self::PURCHASE_WORKFLOW_PATH . $id);
+            Http::redirect(Http::returnTo(self::PURCHASE_WORKFLOW_PATH . $id));
     }
 
     public function cancelPurchaseOrder(int $id): void
@@ -304,13 +328,13 @@ final class WorkflowController
         Http::verifyCsrf();
         try {
             $this->service->cancelPurchaseOrder($id, $user['role']);
-            Http::flash('success', 'Purchase Order dibatalkan.');
+            Http::flash('success', 'Pesanan pembelian berhasil dibatalkan.');
         } catch (\DomainException $e) {
             Http::flash('error', $e->getMessage());
         } catch (Throwable) {
-            Http::flash('error', 'Purchase Order gagal dibatalkan. Coba lagi.');
+            Http::flash('error', 'Pesanan pembelian gagal dibatalkan. Silakan coba lagi.');
         }
-            Http::redirect(self::PURCHASE_WORKFLOW_PATH . $id);
+            Http::redirect(Http::returnTo(self::PURCHASE_WORKFLOW_PATH . $id));
     }
 
     public function receive(int $id): void
@@ -337,10 +361,10 @@ final class WorkflowController
         } catch (\DomainException $e) {
             Http::flash('error', $e->getMessage());
         } catch (Throwable) {
-            Http::flash('error', 'Penerimaan barang gagal dicatat. Coba lagi.');
+            Http::flash('error', 'Penerimaan barang gagal dicatat. Silakan coba lagi.');
         }
 
-            Http::redirect(self::PURCHASE_WORKFLOW_PATH . $id);
+            Http::redirect(Http::returnTo(self::PURCHASE_WORKFLOW_PATH . $id));
     }
 
     public function ledger(): void

@@ -35,11 +35,10 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
     ini_set('session.use_strict_mode', '1');
     ini_set('session.use_only_cookies', '1');
 
-    session_set_cookie_params([
-        'httponly' => true,
-        'samesite' => 'Lax',
-        'secure' => true,
-    ]);
+    // Set SameSite separately because this PHP runtime accepts at most five
+    // positional arguments for session_set_cookie_params().
+    ini_set('session.cookie_samesite', 'Lax');
+    session_set_cookie_params(0, '/', '', true, true);
     session_start();
 }
 $pdo = Database::connect();

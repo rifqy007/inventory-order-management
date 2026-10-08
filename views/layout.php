@@ -33,7 +33,7 @@ $pageTitle = $pageTitles[$name] ?? ucwords(str_replace(['/', '-', '_'], ' ', (st
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>Inventory &amp; Order Management</title>
-    <link rel="stylesheet" href="/assets/app.css?v=20261004-5">
+    <link rel="stylesheet" href="/assets/app.css?v=20261008-2">
 </head>
 
 <body><?php if ($user !== null): ?><div class="app-shell">
@@ -51,7 +51,7 @@ $pageTitle = $pageTitles[$name] ?? ucwords(str_replace(['/', '-', '_'], ' ', (st
                 </header>
                 <main class="main"><?php if ($flash !== null): ?><div class="flash <?= Http::e($flash['type']) ?>"><?= Http::e($flash['message']) ?></div><?php endif; ?><?php require_once __DIR__ . '/' . $name . '.php'; ?></main>
             </div>
-        </div><?php else: ?><main class="guest-main"><?php require_once __DIR__ . '/' . $name . '.php'; ?></main><?php endif; ?><script src="/assets/app.js?v=20261004"></script>
+        </div><?php else: ?><main class="guest-main"><?php require_once __DIR__ . '/' . $name . '.php'; ?></main><?php endif; ?><script src="/assets/app.js?v=20261008-3"></script>
 </body>
 
 </html>
